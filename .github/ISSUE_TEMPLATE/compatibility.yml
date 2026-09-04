@@ -1,0 +1,65 @@
+name: A game does not work
+description: Tell us about a game Enginehost will not run properly.
+title: "Game: what happens"
+labels: ["report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Enginehost fills this in for you when you report from inside the app
+        (long press a game, then **Report a problem**). Filling it in by hand
+        is fine too; the more of it you can answer, the sooner the game runs.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: The name and version of the game, as its folder or its title screen gives it.
+      placeholder: Eternum 0.9.5
+    validations:
+      required: true
+  - type: input
+    id: engine
+    attributes:
+      label: Engine
+      description: The engine and version Enginehost detected, or the one you know it to be.
+      placeholder: Ren'Py 8.3.2
+    validations:
+      required: true
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: What happens
+      options:
+        - It does not start
+        - It starts, then closes
+        - A black or blank screen
+        - The controller does nothing
+        - Saves are not kept
+        - Sound or video is wrong
+        - It runs badly
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Anything else worth knowing
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Plugin and device
+      description: The plugin build, the Enginehost build, the device, and the game's enginehost.json.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The end of the engine's log. Paths are shortened before this reaches you.
+      render: text
+    validations:
+      required: false

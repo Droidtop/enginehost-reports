@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Enginehost itself
+    url: https://github.com/droidtop/enginehost/issues
+    about: Something wrong with the app rather than with a particular game.

@@ -1,0 +1,113 @@
+name: Triage
+
+# Reports arrive one at a time and are fixed in batches, so each one is
+# labelled the moment it lands and the whole open set is summarised once a
+# week. The digest is what a maintenance session reads: which engines have
+# the most games waiting, and which games are already fixed by a newer build.
+on:
+  issues:
+    types: [opened, edited, reopened]
+  schedule:
+    - cron: "0 9 * * MON"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    if: ${{ github.event_name == 'issues' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label the report by engine and symptom
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ github.event.issue.body }}
+          NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          lower="$(printf '%s' "$BODY" | tr '[:upper:]' '[:lower:]')"
+          labels=""
+          add() { labels="${labels:+$labels,}$1"; gh label create "$1" --repo "$REPO" --color "$2" --description "$3" --force >/dev/null; }
+          case "$lower" in
+            *"ren'py"*|*renpy*) add "engine: ren'py" 6A4BC7 "Reports about Ren'Py games" ;;
+          esac
+          case "$lower" in
+            *"rpg maker"*|*rpgmaker*) add "engine: rpg maker" 0F8A6A "Reports about RPG Maker games" ;;
+          esac
+          case "$lower" in
+            *kirikiri*) add "engine: kirikiri" C2437A "Reports about KiriKiri games" ;;
+          esac
+          case "$lower" in
+            *godot*) add "engine: godot" 2E7DD6 "Reports about Godot games" ;;
+          esac
+          case "$lower" in
+            *"html game"*|*twine*|*sugarcube*) add "engine: html" B26A00 "Reports about HTML games" ;;
+          esac
+          case "$lower" in
+            *flash*|*" air"*|*adobe*) add "engine: flash/air" D14F2A "Reports about Flash and AIR content" ;;
+          esac
+          case "$lower" in
+            *"does not start"*) add "symptom: will not start" B60205 "The game never reaches its first frame" ;;
+            *"then closes"*) add "symptom: closes" B60205 "The game starts and then exits" ;;
+            *"black or blank"*) add "symptom: black screen" D93F0B "The game runs but draws nothing" ;;
+            *"controller does nothing"*) add "symptom: controller" FBCA04 "Input does not reach the game" ;;
+            *"saves are not kept"*) add "symptom: saves" FBCA04 "Saves are lost or unreachable" ;;
+            *"sound or video"*) add "symptom: audio/video" FBCA04 "Media does not play correctly" ;;
+            *"runs badly"*) add "symptom: performance" C5DEF5 "The game runs, but poorly" ;;
+          esac
+          if [ -n "$labels" ]; then
+            gh issue edit "$NUMBER" --repo "$REPO" --add-label "$labels"
+            echo "labelled: $labels"
+          else
+            echo "nothing matched; left for a person"
+          fi
+
+  digest:
+    if: ${{ github.event_name != 'issues' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarise the open reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh issue list --repo "$REPO" --state open --label report --limit 500 \
+            --json number,title,labels,createdAt,url > reports.json
+          python3 - <<'PY' > digest.md
+          import json, collections, datetime, os
+          reports = json.load(open("reports.json"))
+          engines = collections.defaultdict(list)
+          symptoms = collections.Counter()
+          for report in reports:
+              labels = [l["name"] for l in report["labels"]]
+              engine = next((l.split(": ", 1)[1] for l in labels if l.startswith("engine: ")), "unclassified")
+              symptom = next((l.split(": ", 1)[1] for l in labels if l.startswith("symptom: ")), "unclassified")
+              engines[engine].append((report, symptom))
+              symptoms[symptom] += 1
+          today = datetime.date.today().isoformat()
+          print(f"Open reports on {today}: **{len(reports)}**.\n")
+          if symptoms:
+              print("| Symptom | Reports |")
+              print("| --- | --- |")
+              for symptom, count in symptoms.most_common():
+                  print(f"| {symptom} | {count} |")
+              print()
+          for engine in sorted(engines, key=lambda e: -len(engines[e])):
+              print(f"### {engine} ({len(engines[engine])})\n")
+              for report, symptom in sorted(engines[engine], key=lambda r: r[0]["createdAt"]):
+                  print(f"- [#{report['number']}]({report['url']}) {report['title']} — {symptom}")
+              print()
+          PY
+          title="Weekly triage"
+          existing="$(gh issue list --repo "$REPO" --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$REPO" --body-file digest.md
+            gh issue comment "$existing" --repo "$REPO" --body "Digest refreshed: $(date -u +%Y-%m-%d)."
+            echo "updated #$existing"
+          else
+            gh label create "triage" --repo "$REPO" --color 0E8A16 --description "The rolling digest of open reports" --force >/dev/null
+            gh issue create --repo "$REPO" --title "$title" --label triage --body-file digest.md
+          fi
