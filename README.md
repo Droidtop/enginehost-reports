@@ -10,8 +10,11 @@ enough to reproduce the failure against a copy of the same engine.
 
 ## Reporting from the app
 
-Long press a game in Enginehost and choose **Report a problem**, or press it
-on the screen that appears when a game fails to start. Enginehost fills in the
+Long press a game in Enginehost and choose **Report a problem**, press it on
+the screen that appears when a game fails to start, or accept the offer
+Enginehost makes when a game's runtime crashes. In that last case the report
+already carries the crash: the exception and its stack, or the tombstone
+Android kept for a native crash. Enginehost fills in the
 game, the engine and version it detected, the plugin build that claimed it,
 the app and device, and the end of the engine's log. Every field is editable
 before it is sent, because detection is a guess and the person holding the
